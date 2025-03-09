@@ -7,10 +7,9 @@ import (
 	"math"
 	"time"
 
-	"github.com/ollama/ollama/model"
-
 	"github.com/ollama/ollama/kvcache"
-	"github.com/ollama/ollama/ml"
+	"github.com/ollama/ollama/llm"
+	"github.com/ollama/ollama/llm/model"
 )
 
 type InputCache struct {
@@ -56,14 +55,14 @@ func NewInputCache(model model.Model, kvCacheType string, kvSize int32, numSlots
 	}, nil
 }
 
-func kvCacheTypeFromStr(s string) ml.DType {
+func kvCacheTypeFromStr(s string) llm.DType {
 	switch s {
 	case "q8_0":
-		return ml.DTypeQ80
+		return llm.DTypeQ80
 	case "q4_0":
-		return ml.DTypeQ40
+		return llm.DTypeQ40
 	default:
-		return ml.DTypeF16
+		return llm.DTypeF16
 	}
 }
 
