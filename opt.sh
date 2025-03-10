@@ -15,6 +15,9 @@ case $1 in
   build)
     cd $PROJECT/llm/cmd && CGO_ENABLED=1 OLLAMA_BACKEND=ggml $GO build -tags="ggml" -o $PROJECT/llmbin
     ;;
+  run)
+    ./llmbin runner --ollama-engine --port 10000 --model ./ggml
+    ;;
   *)
     echo "not support:$1"
     ;;
