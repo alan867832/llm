@@ -3,12 +3,43 @@ PWD=`pwd`
 PROJECT=$PWD
 GO=go
 case $1 in
+  no)
+  sudo mkfs.ext4 /dev/nvme2n1
+  sudo mkfs.ext4 /dev/nvme1n1
+  sudo pvcreate /dev/nvme1n1
+  sudo pvcreate /dev/nvme2n1
+  sudo vgcreate vg_root /dev/nvme1n1
+
+  sudo vgextend vg-root /dev/nvme1n1
+  sudo vgextend vg-root /dev/nvme2n1
+  sudo lvextend -l +100%FREE /dev/vg-root/lv-root
+  sudo resize2fs /dev/vg-root/lv-root
+
+
+
+
+  curl -X POST 127.0.0.1:11434/api/pull -d '{"model":"qwen2.5:32b"}'
+  curl -X GET 127.0.0.1:11434/v1/models
+
+  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+sudo dpkg -i cuda-keyring_1.1-1_all.deb
+sudo apt-get update
+sudo apt-get -y install cuda-12-6
+nvidia-smi
+  ;;
   install)
     sudo apt-get update
     sudo apt-get install build-essential gcc cmake -y
     sudo curl -LO https://go.dev/dl/go1.23.3.linux-amd64.tar.gz && sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go*.linux-amd64.tar.gz && sudo rm go*.linux-amd64.tar.gz
     cd tools && python3 -m pip install -r requirements.txt
     ;;
+  init_oa)
+  git clone https://github.com/ollama/ollama.git
+  cd ollama && go build
+  ;;
+  start_oa)
+  cd ollama && ./ollama serve
+  ;;
   ggml)
   #deepseek
     wget https://huggingface.co/unsloth/DeepSeek-R1-GGUF/resolve/main/DeepSeek-R1-Q4_K_M/DeepSeek-R1-Q4_K_M-00001-of-00009.gguf
