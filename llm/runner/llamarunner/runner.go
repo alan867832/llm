@@ -23,10 +23,8 @@ import (
 	"golang.org/x/sync/semaphore"
 
 	"github.com/ollama/ollama/api"
-
-	"llm/runner/common"
-
 	"github.com/ollama/ollama/llama"
+	"github.com/ollama/ollama/runner/common"
 )
 
 // input is an element of the prompt to process, either
@@ -933,6 +931,7 @@ func Execute(args []string) error {
 	slog.Info("starting go runner")
 
 	llama.BackendInit()
+	slog.Info("system", "info", llama.PrintSystemInfo(), "threads", *threads)
 
 	server := &Server{
 		batchSize: *batchSize,

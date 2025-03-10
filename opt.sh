@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 PWD=`pwd`
 PROJECT=$PWD
-GO=/usr/local/go/bin/go
+GO=go
 case $1 in
   install)
     sudo apt-get update
@@ -13,7 +13,7 @@ case $1 in
     cd $PROJECT/tools && python parse_html.py
     ;;
   build)
-    cd $PROJECT/llm/cmd && CGO_ENABLED=1 OLLAMA_BACKEND=ggml $GO build -tags="ggml" -o $PROJECT/bin/llm
+    cd $PROJECT/llm/cmd && CGO_ENABLED=1 OLLAMA_BACKEND=ggml $GO build -tags="ggml" -o $PROJECT/llmbin
     ;;
   *)
     echo "not support:$1"

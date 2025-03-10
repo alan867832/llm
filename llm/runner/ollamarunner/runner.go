@@ -1,12 +1,13 @@
 package ollamarunner
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"hash/maphash"
+	"image"
 	"log"
 	"log/slog"
 	"net"
@@ -23,29 +24,31 @@ import (
 
 	"golang.org/x/sync/semaphore"
 
-	"llm/runner/common"
-
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/ml"
 	"github.com/ollama/ollama/model"
+	"github.com/ollama/ollama/runner/common"
 	"github.com/ollama/ollama/sample"
 
 	_ "github.com/ollama/ollama/model/models"
 )
 
-type Sequence struct {
-	// ctx for allocating tensors that last the lifetime of the sequence, such as
-	// multimodal embeddings
-	ctx ml.Context
+// input is an element of the prompt to process, either a token or an image
+type input struct {
+	token int32
 
+	image image.Image
+}
+
+type Sequence struct {
 	// batch index
 	iBatch int
 
 	// prompt inputs left to evaluate
-	inputs []model.Input
+	inputs []input
 
 	// inputs that have been added to a batch but not yet submitted to Forward
-	pendingInputs []model.Input
+	pendingInputs []input
 
 	// tokens that have been generated but not returned yet (e.g. for stop sequences)
 	pendingResponses []string
@@ -98,9 +101,8 @@ func (s *Server) NewSequence(prompt string, images []ImageData, params NewSequen
 	s.ready.Wait()
 
 	startTime := time.Now()
-	ctx := s.model.Backend().NewContext()
 
-	inputs, err := s.inputs(ctx, prompt, images)
+	inputs, err := s.inputs(prompt, images)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process inputs: %w", err)
 	} else if len(inputs) == 0 {
@@ -126,7 +128,6 @@ func (s *Server) NewSequence(prompt string, images []ImageData, params NewSequen
 	// TODO(jessegross): Ingest cached history for grammar
 
 	return &Sequence{
-		ctx:                 ctx,
 		inputs:              inputs,
 		numPromptInputs:     len(inputs),
 		startProcessingTime: startTime,
@@ -145,31 +146,28 @@ func (s *Server) NewSequence(prompt string, images []ImageData, params NewSequen
 // inputs processes the prompt and images into a list of inputs
 // by splitting the prompt on [img-<n>] tags, tokenizing text and
 // decoding images
-func (s *Server) inputs(ctx ml.Context, prompt string, images []ImageData) ([]model.Input, error) {
-	var inputs []model.Input
+func (s *Server) inputs(prompt string, images []ImageData) ([]input, error) {
+	var inputs []input
 	var parts []string
 	var matches [][]string
 
-	multimodalProcessor, visionModel := s.model.(model.MultimodalProcessor)
+	// TODO(jessegross): This can sometimes trigger for matching text in the
+	// user's prompt. We previously tried to avoid it by only looking for images
+	// on image models. We don't have a clear indication now but it would be better
+	// to properly escape it in any case.
+	re := regexp.MustCompile(`\[img-(\d+)\]`)
+	parts = re.Split(prompt, -1)
+	matches = re.FindAllStringSubmatch(prompt, -1)
 
-	if visionModel {
-		re := regexp.MustCompile(`\[img-(\d+)\]`)
-		parts = re.Split(prompt, -1)
-		matches = re.FindAllStringSubmatch(prompt, -1)
-	} else {
-		parts = []string{prompt}
-	}
-
-	postTokenize := false
 	for i, part := range parts {
 		// text - tokenize
-		tokens, err := s.model.(model.TextProcessor).Encode(part, i == 0)
+		tokens, err := s.model.(model.TextProcessor).Encode(part)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, t := range tokens {
-			inputs = append(inputs, model.Input{Token: t})
+			inputs = append(inputs, input{token: t})
 		}
 
 		// image - decode and store
@@ -188,25 +186,12 @@ func (s *Server) inputs(ctx ml.Context, prompt string, images []ImageData) ([]mo
 				return nil, fmt.Errorf("invalid image index: %d", n)
 			}
 
-			imageEmbeddings, err := multimodalProcessor.EncodeMultimodal(ctx, images[imageIndex].Data)
+			image, _, err := image.Decode(bytes.NewReader(images[imageIndex].Data))
 			if err != nil {
 				return nil, err
 			}
 
-			s.multimodalHash.Reset()
-			_, _ = s.multimodalHash.Write(images[imageIndex].Data)
-			imageHash := s.multimodalHash.Sum64()
-
-			inputs = append(inputs, model.Input{Multimodal: imageEmbeddings, MultimodalHash: imageHash})
-			postTokenize = true
-		}
-	}
-
-	if visionModel && postTokenize {
-		var err error
-		inputs, err = multimodalProcessor.PostTokenize(ctx, inputs)
-		if err != nil {
-			return nil, err
+			inputs = append(inputs, input{image: image})
 		}
 	}
 
@@ -253,10 +238,6 @@ type Server struct {
 
 	// next sequence for prompt processing to avoid starvation
 	nextSeq int
-
-	// multimodalHash generates hashes for comparing equality
-	// of non-text data
-	multimodalHash maphash.Hash
 }
 
 func (s *Server) allNil() bool {
@@ -302,7 +283,6 @@ func (s *Server) removeSequence(seqIndex int, reason string) {
 	close(seq.responses)
 	close(seq.embedding)
 	seq.cache.InUse = false
-	seq.ctx.Close()
 	s.seqs[seqIndex] = nil
 	s.seqsSem.Release(1)
 }
@@ -331,6 +311,7 @@ func (s *Server) processBatch() error {
 	defer s.mu.Unlock()
 
 	var options model.Options
+	imgSeq := -1
 
 	seqIdx := s.nextSeq - 1
 	for range s.seqs {
@@ -349,7 +330,7 @@ func (s *Server) processBatch() error {
 
 		if !s.cache.enabled {
 			seq.inputs = append(seq.cache.Inputs, seq.inputs...)
-			seq.cache.Inputs = []model.Input{}
+			seq.cache.Inputs = []input{}
 		}
 
 		for i, input := range seq.inputs {
@@ -368,21 +349,25 @@ func (s *Server) processBatch() error {
 				break
 			}
 
-			// TODO(jessegross): This is a workaround for generating an attention mask and also providing a hint
-			// to the encoder cache.
-			//
-			// Break the batch when switching from text to images so that images are always at the beginning.
-			if input.Multimodal != nil && !(len(seq.pendingInputs) == 0 ||
-				(len(options.Multimodal) > 0 && options.Multimodal[len(options.Multimodal)-1].Index == len(options.Inputs)-1)) {
-				s.nextSeq = seqIdx
-				break
+			// TODO(jessegross): Image inputs need to be rethought - it's
+			// it doesn't work well for different types of models or multiple sequences
+			if input.image != nil {
+				if len(seq.pendingInputs) != len(options.Images) {
+					break
+				}
+
+				if imgSeq != seqIdx && imgSeq != -1 {
+					s.nextSeq = seqIdx
+					break
+				}
+
+				imgSeq = seqIdx
+				options.Images = append(options.Images, input.image)
+				seq.pendingInputs = append(seq.pendingInputs, input)
+				continue
 			}
 
-			options.Inputs = append(options.Inputs, input.Token)
-			if input.Multimodal != nil {
-				options.Multimodal = append(options.Multimodal, model.MultimodalIndex{Index: len(options.Inputs) - 1, Multimodal: input.Multimodal})
-			}
-
+			options.Inputs = append(options.Inputs, input.token)
 			options.Positions = append(options.Positions, int32(len(seq.cache.Inputs)+len(seq.pendingInputs)))
 			options.Sequences = append(options.Sequences, seq.cache.Id)
 
@@ -418,7 +403,7 @@ func (s *Server) processBatch() error {
 		// After calling Forward, pending inputs are now in the cache
 		if len(seq.pendingInputs) > 0 {
 			seq.cache.Inputs = append(seq.cache.Inputs, seq.pendingInputs...)
-			seq.pendingInputs = []model.Input{}
+			seq.pendingInputs = []input{}
 		}
 
 		// don't sample prompt processing
@@ -437,10 +422,8 @@ func (s *Server) processBatch() error {
 		// if done processing the prompt, generate an embedding and return
 		if seq.embeddingOnly {
 			// TODO(jessegross): Embedding support
-			// s.removeSequence(i, "")
-			// continue
-
-			panic("generation of embedding outputs not yet supported")
+			s.removeSequence(i, "")
+			continue
 		}
 
 		// sample a token
@@ -466,7 +449,7 @@ func (s *Server) processBatch() error {
 			return err
 		}
 
-		seq.inputs = []model.Input{{Token: token}}
+		seq.inputs = []input{{token: token}}
 
 		seq.pendingResponses = append(seq.pendingResponses, piece)
 		sequence := strings.Join(seq.pendingResponses, "")
@@ -592,23 +575,11 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sampler := sample.NewSampler(
-		req.Temperature,
-		req.TopK,
-		req.TopP,
-		req.MinP,
-		req.Seed,
-	)
-
-	if req.Grammar != "" {
-		panic("grammars are not yet supported")
-	}
-
 	seq, err := s.NewSequence(req.Prompt, req.Images, NewSequenceParams{
 		numPredict: req.NumPredict,
 		stop:       req.Stop,
 		numKeep:    int32(req.NumKeep),
-		sampler:    sampler,
+		sampler:    sample.Greedy(), // TODO: add support for different samplers when performance is optimized
 		embedding:  false,
 	})
 	if err != nil {
@@ -814,6 +785,8 @@ func (s *Server) loadModel(
 	if err != nil {
 		panic(err)
 	}
+
+	slog.Info("system", "info", s.model.Backend().SystemInfo(), "threads", params.NumThreads)
 
 	// TODO(jessegross): LoRA loading
 	if lpath.String() != "" {

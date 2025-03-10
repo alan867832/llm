@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"reflect"
 	"time"
 
 	"github.com/ollama/ollama/kvcache"
-	"github.com/ollama/ollama/llm"
-	"github.com/ollama/ollama/llm/model"
+	"github.com/ollama/ollama/ml"
+	"github.com/ollama/ollama/model"
 )
 
 type InputCache struct {
@@ -38,7 +39,10 @@ func NewInputCache(model model.Model, kvCacheType string, kvSize int32, numSlots
 	slots := make([]InputCacheSlot, numSlots)
 
 	for i := range slots {
-		slots[i] = InputCacheSlot{Id: i}
+		slots[i] = InputCacheSlot{
+			Id:     i,
+			Inputs: make([]input, 0),
+		}
 	}
 
 	cache := model.Config().Cache
@@ -55,14 +59,14 @@ func NewInputCache(model model.Model, kvCacheType string, kvSize int32, numSlots
 	}, nil
 }
 
-func kvCacheTypeFromStr(s string) llm.DType {
+func kvCacheTypeFromStr(s string) ml.DType {
 	switch s {
 	case "q8_0":
-		return llm.DTypeQ80
+		panic("kv cache quantization not yet implemented")
 	case "q4_0":
-		return llm.DTypeQ40
+		panic("kv cache quantization not yet implemented")
 	default:
-		return llm.DTypeF16
+		return ml.DTypeF16
 	}
 }
 
@@ -79,7 +83,7 @@ type InputCacheSlot struct {
 	Id int
 
 	// Inputs that are stored in the KV cache
-	Inputs []model.Input
+	Inputs []input
 
 	// is this cache actively being processed as part of a sequence?
 	InUse bool
@@ -88,7 +92,7 @@ type InputCacheSlot struct {
 	lastUsed time.Time
 }
 
-func (c *InputCache) LoadCacheSlot(prompt []model.Input, cachePrompt bool) (*InputCacheSlot, []model.Input, error) {
+func (c *InputCache) LoadCacheSlot(prompt []input, cachePrompt bool) (*InputCacheSlot, []input, error) {
 	var slot *InputCacheSlot
 	var numPast int32
 	var err error
@@ -139,7 +143,7 @@ func (c *InputCache) LoadCacheSlot(prompt []model.Input, cachePrompt bool) (*Inp
 	return slot, prompt, nil
 }
 
-func (c *InputCache) findLongestCacheSlot(prompt []model.Input) (*InputCacheSlot, int32, error) {
+func (c *InputCache) findLongestCacheSlot(prompt []input) (*InputCacheSlot, int32, error) {
 	longest := int32(-1)
 	var longestSlot *InputCacheSlot
 
@@ -162,7 +166,7 @@ func (c *InputCache) findLongestCacheSlot(prompt []model.Input) (*InputCacheSlot
 	return longestSlot, longest, nil
 }
 
-func (c *InputCache) findBestCacheSlot(prompt []model.Input) (*InputCacheSlot, int32, error) {
+func (c *InputCache) findBestCacheSlot(prompt []input) (*InputCacheSlot, int32, error) {
 	oldest := time.Now()
 	var oldestSlot *InputCacheSlot
 
@@ -198,7 +202,7 @@ func (c *InputCache) findBestCacheSlot(prompt []model.Input) (*InputCacheSlot, i
 	if longest > 0 && longestSlot != oldestSlot {
 		slog.Debug("forking cache slot", "src", longestSlot.Id, "dst", oldestSlot.Id, "inputs", longest, "total",
 			len(longestSlot.Inputs))
-		oldestSlot.Inputs = make([]model.Input, longest)
+		oldestSlot.Inputs = make([]input, longest)
 		copy(oldestSlot.Inputs, longestSlot.Inputs[:longest])
 		if c.cache != nil {
 			c.cache.CopyPrefix(longestSlot.Id, oldestSlot.Id, longest)
@@ -208,7 +212,7 @@ func (c *InputCache) findBestCacheSlot(prompt []model.Input) (*InputCacheSlot, i
 	return oldestSlot, longest, nil
 }
 
-func countCommonPrefix(a []model.Input, b []model.Input) int32 {
+func countCommonPrefix(a []input, b []input) int32 {
 	var count int32
 
 	for i := range a {
@@ -216,7 +220,7 @@ func countCommonPrefix(a []model.Input, b []model.Input) int32 {
 			break
 		}
 
-		if a[i].Token != b[i].Token || a[i].MultimodalHash != b[i].MultimodalHash {
+		if !reflect.DeepEqual(a[i], b[i]) {
 			break
 		}
 
