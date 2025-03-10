@@ -40,6 +40,18 @@ nvidia-smi
   start_oa)
   cd ollama && ./ollama serve
   ;;
+  chat_oa)
+  curl http://localhost:11434/api/chat -d '{
+    "model": "qwq:32b",
+    "messages": [
+      {
+        "role": "user",
+        "content": "{$2}"
+      }
+    ],
+    "stream": true
+  }'
+  ;;
   ggml)
   #deepseek
     wget https://huggingface.co/unsloth/DeepSeek-R1-GGUF/resolve/main/DeepSeek-R1-Q4_K_M/DeepSeek-R1-Q4_K_M-00001-of-00009.gguf
