@@ -16,6 +16,7 @@ def read_markdown_files(folder):
         if filename.endswith(".md"):
             file_path = os.path.join(folder, filename)
             with open(file_path, "r", encoding="utf-8") as file:
+                print(f"读取文件: {filename}")
                 content = file.read()
                 # 按 "文件名: 内容" 格式存储
                 markdown_data.append(f"文件名: {filename}, 内容: {content}")
@@ -31,7 +32,6 @@ def send_to_ollama(contents):
     
     # 加入总结请求
     messages.append({"role": "user", "content": "请总结分类上面的文档"})
-
 
     # 发送 POST 请求
     response = requests.post(ollama_api_url, 
