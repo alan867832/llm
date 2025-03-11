@@ -50,7 +50,7 @@ nvidia-smi
     "messages": [
       {
         "role": "user",
-        "content": "{$2}"
+        "content": "你会做点什么呢"
       }
     ],
     "stream": true
