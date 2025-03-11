@@ -1,6 +1,7 @@
 import os
 from PyPDF2 import PdfReader
 
+input_folder = 'downloaded_pdfs'
 output_folder = 'markdown_files'
 
 # 创建输出文件夹（如果不存在）
