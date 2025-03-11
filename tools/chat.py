@@ -63,7 +63,7 @@ def send_to_ollama(contents):
                         message = chunk_data["message"]
                         content = message["content"]
                         if content:
-                            print(content)
+                            print(content, end="")
     else:
         print(f"请求失败，状态码：{response.status_code}")
         print("错误信息：", response.text)
