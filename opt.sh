@@ -26,6 +26,9 @@ sudo dpkg -i cuda-keyring_1.1-1_all.deb
 sudo apt-get update
 sudo apt-get -y install cuda-12-6
 nvidia-smi
+/usr/local/cuda-12.6/extras/demo_suite/deviceQuery
+
+   curl -fsSL https://ollama.com/install.sh | sh
   ;;
   install)
     sudo apt-get update

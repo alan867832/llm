@@ -31,19 +31,38 @@ def send_to_ollama(contents):
     # 加入总结请求
     messages.append({"role": "user", "content": "请总结分类上面的文档"})
 
-    # 组装请求数据
-    payload = {
-        "model": "qwq:32b",  # 替换为你的模型名称
-        "messages": messages
-    }
 
     # 发送 POST 请求
-    response = requests.post(ollama_api_url, json=payload)
+    response = requests.post(ollama_api_url, 
+        json={
+            "messages": messages,
+            "model": "qwq:32b",
+            "stream": True
+        },
+        headers={
+            "accept": "application/json",
+            "Content-Type": "application/json"
+        },
+        timeout=None,
+        stream=True,
+        )
 
     # 检查响应状态
     if response.status_code == 200:
         print("Ollama API 响应成功！")
-        print("响应内容：", response.json())
+        
+        for chunk in response.iter_lines():
+            if chunk:
+                # 解码二进制数据为字符串
+                json_str = chunk.decode('utf-8')
+                if json_str:
+                    chunk_data = json.loads(json_str)
+                    # 从choices中获取content
+                    if "message" in chunk_data and chunk_data["message"]:
+                        message = chunk_data["message"]
+                        content = message["content"]
+                        if content:
+                            print(content)
     else:
         print(f"请求失败，状态码：{response.status_code}")
         print("错误信息：", response.text)
