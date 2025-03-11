@@ -29,6 +29,19 @@ nvidia-smi
 /usr/local/cuda-12.6/extras/demo_suite/deviceQuery
 
    curl -fsSL https://ollama.com/install.sh | sh
+# Environment="CUDA_VISIBLE_DEVICES=0"
+# Environment="OLLAMA_SCHED_SPREAD=1"
+# Environment="OLLAMA_NUM_PARALLEL=2"
+# Environment="OLLAMA_HOST=0.0.0.0"
+# Environment="OLLAMA_PORT=11434"
+    #sudo vim /etc/systemd/system/ollama.service
+    #sudo systemctl daemon-reload
+    #sudo service ollama restart
+        sudo apt-get install ollama -y
+        ollama pull qwq:32b
+        ollama run qwq:32b
+        
+   /usr/local/bin/ollama runner --model /usr/share/ollama/.ollama/models/blobs/sha256-c62ccde5630c20c8a9cf601861d31977d07450cad6dfdf1c661aab307107bddb --ctx-size 4096 --batch-size 512 --n-gpu-layers 65 --threads 16 --parallel 2 --port 44791
   ;;
   install)
     sudo apt-get update
