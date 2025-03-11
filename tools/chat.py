@@ -28,6 +28,7 @@ def send_to_ollama(contents):
     # 组装 messages
     messages = []
     for content in contents:
+        print(f"添加内容: {content}")
         messages.append({"role": "assistant", "content": content})
     
     # 加入总结请求
