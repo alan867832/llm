@@ -32,6 +32,10 @@ nvidia-smi
     sudo apt-get install build-essential gcc cmake -y
     sudo curl -LO https://go.dev/dl/go1.23.3.linux-amd64.tar.gz && sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go*.linux-amd64.tar.gz && sudo rm go*.linux-amd64.tar.gz
     cd tools && python3 -m pip install -r requirements.txt
+    sudo apt install python3-pip
+    sudo apt install python3.12-venv
+    python3 -m venv py
+    source ./py/bin/activate
     ;;
   init_oa)
   git clone https://github.com/ollama/ollama.git
@@ -42,7 +46,7 @@ nvidia-smi
   ;;
   chat_oa)
   curl http://localhost:11434/api/chat -d '{
-    "model": "qwq:32b",
+    "model": "qwen2.5:32b",
     "messages": [
       {
         "role": "user",
