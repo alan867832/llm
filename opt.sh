@@ -18,7 +18,7 @@ case $1 in
 
 
 
-  curl -X POST 127.0.0.1:11434/api/pull -d '{"model":"qwen2.5:32b"}'
+  curl -X POST 127.0.0.1:11434/api/pull -d '{"model":"qwq:32b"}'
   curl -X GET 127.0.0.1:11434/v1/models
 
   wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
@@ -46,7 +46,7 @@ nvidia-smi
   ;;
   chat_oa)
   curl http://localhost:11434/api/chat -d '{
-    "model": "qwen2.5:32b",
+    "model": "qwq:32b",
     "messages": [
       {
         "role": "user",

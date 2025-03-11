@@ -33,7 +33,7 @@ def send_to_ollama(contents):
 
     # 组装请求数据
     payload = {
-        "model": "qwen2.5:32b",  # 替换为你的模型名称
+        "model": "qwq:32b",  # 替换为你的模型名称
         "messages": messages
     }
 
