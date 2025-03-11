@@ -14,6 +14,12 @@ if not os.path.exists(output_folder):
 # 记录已经访问过的 URL
 visited_urls = set()
 
+def block_url(url):
+    if "jeffhuang.com" in url:
+        print(f"Blocked: {url}")
+        return False
+    return True
+
 # 下载文件的函数
 def download_file(url, folder):
     """下载文件并保存到指定文件夹"""
@@ -53,7 +59,8 @@ def find_and_download_pdfs(url, folder):
 
             # 如果链接指向其他页面，则递归查找
             elif not full_url.startswith(('http://', 'https://')) or base_url in full_url:  # 限制在当前网站内
-                find_and_download_pdfs(full_url, folder)
+                if block_url(full_url):
+                    find_and_download_pdfs(full_url, folder)
     except Exception as e:
         print(f"Failed to visit {url}: {e}")
 
