@@ -1,7 +1,6 @@
 import os
 import requests
 import json
-import xml.etree.ElementTree as ET
 
 # 文件夹路径
 markdown_folder = "markdown_files"
