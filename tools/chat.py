@@ -1,7 +1,7 @@
 import os
 import requests
 import json
-import xml.etree.ElementTree as ET
+from lxml import etree
 
 # 文件夹路径
 markdown_folder = "markdown_files"
@@ -30,16 +30,16 @@ def read_markdown_files(folder):
 
 # 将 Markdown 文件列表转换为 XML 字符串
 def markdown_files_to_xml(markdown_files):
-    root = ET.Element("MarkdownFiles")
+    root = etree.Element("MarkdownFiles")
     for markdown_file in markdown_files:
-        item = ET.SubElement(root, "MarkdownFile")
-        filename = ET.SubElement(item, "filename")
+        item = etree.SubElement(root, "MarkdownFile")
+        filename = etree.SubElement(item, "filename")
         filename.text = markdown_file.filename
-        content = ET.SubElement(item, "content")
+        content = etree.SubElement(item, "content")
         # 使用 CDATA 区块包裹 content
-        cdata = ET.CDATA(markdown_file.content)
+        cdata = etree.CDATA(markdown_file.content)
         content.append(cdata)
-    return ET.tostring(root, encoding="unicode", method="xml")
+    return etree.tostring(root, pretty_print=True, encoding="unicode", method="xml")
 
 # 组装数据并调用 Ollama API
 def send_to_ollama(contents):
