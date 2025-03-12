@@ -74,7 +74,7 @@ def send_to_ollama(contents):
     # 发送 POST 请求
     response = requests.post(ollama_api_url, 
         json={
-            "messages": [{"role": "user", "content": xml_string+" 充电桩使用效率什么情况最高？"}],
+            "messages": [{"role": "user", "content": xml_string+" 写一份3000字左右的总结报告。"}],
             "model": "qwq:32b",
             "stream": True
         },
