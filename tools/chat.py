@@ -37,8 +37,8 @@ def markdown_files_to_xml(markdown_files):
         filename.text = markdown_file.filename
         content = etree.SubElement(item, "content")
         # 使用 CDATA 区块包裹 content
-        cdata = etree.CDATA(markdown_file.content)
-        content.append(cdata)
+        content.text = None
+        content.append(etree.CDATA(markdown_file.content))
     return etree.tostring(root, pretty_print=True, encoding="unicode", method="xml")
 
 # 组装数据并调用 Ollama API
