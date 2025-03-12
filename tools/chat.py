@@ -14,19 +14,42 @@ class MarkdownFile:
         self.filename = filename
         self.content = content
 
+import re
+import unicodedata
+
+def count_characters(text):
+    total_chinese = 0
+    total_english = 0
+
+    # 通过字符编码检测方法统计
+    total_chinese += sum(1 for char in text if '\u4e00' <= char <= '\u9fa5')
+    total_english += sum(1 for char in text if 'a' <= char <= 'z' or 'A' <= char <= 'Z')
+
+    # 通过unicodedata分类方法统计
+    total_chinese += sum(1 for char in text if unicodedata.category(char) == 'Lo')
+    total_english += sum(1 for char in text if unicodedata.category(char) in ('Ll', 'Lu'))
+
+    return total_chinese, total_english
+
+
 # 读取 Markdown 文件内容
 def read_markdown_files(folder):
     """读取文件夹中的所有 Markdown 文件并返回文件名和内容"""
     markdown_data = []
+    clen = 0
+    elen = 0
     for filename in os.listdir(folder):
         if filename.endswith(".md"):
             file_path = os.path.join(folder, filename)
             with open(file_path, "r", encoding="utf-8") as file:
                 print(f"读取文件: {filename}")
                 content = file.read()
+                tclen, telen = count_characters(content)
+                clen += tclen
+                elen += telen
                 # 按 "文件名: 内容" 格式存储
                 markdown_data.append(MarkdownFile(filename, content))
-    print(f"读取完成，共 {len(markdown_data)} 个 Markdown 文件")
+    print(f"读取完成，共 {len(markdown_data)} 个 Markdown 文件 {clen} 个中文字符 {elen} 个英文字符")
     return markdown_data
 
 # 将 Markdown 文件列表转换为 XML 字符串
