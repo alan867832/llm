@@ -30,20 +30,15 @@ def read_markdown_files(folder):
 
 # 将 Markdown 文件列表转换为 XML 字符串
 def markdown_files_to_xml(markdown_files):
-    root = ET.Element("root")
+    xml_str = '<?xml version="1.0" encoding="UTF-8"?><root>'
     for markdown_file in markdown_files:
-        item = ET.SubElement(root, "MarkdownFile")
+        xml_str += f'<MarkdownFile>'
+        xml_str += f'\n<filename>{markdown_file.filename}</filename>'
+        xml_str += f'\n<content><![CDATA[{markdown_file.content}]]></content>'
+        xml_str += f'</MarkdownFile>'
+    xml_str += '</root>'
 
-        filename = ET.SubElement(item, "filename")
-        filename.text = markdown_file.filename
-        content = ET.SubElement(item, "content")
-        content.text = None  # 必须设置为 None 才能添加子节点
-        cdata = ET.CDATA(markdown_file.content)
-        content.append(cdata)
-        item.append(filename)
-        item.append(content)
-        root.append(item)
-    return ET.tostring(root, pretty_print=True, encoding="unicode", method="xml")
+    return xml_str
 
 # 组装数据并调用 Ollama API
 def send_to_ollama(contents):
