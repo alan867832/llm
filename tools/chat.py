@@ -1,12 +1,18 @@
 import os
 import requests
 import json
+import xml.etree.ElementTree as ET
 
 # 文件夹路径
 markdown_folder = "markdown_files"
 
 # Ollama API 地址
 ollama_api_url = "http://localhost:11434/api/chat"
+
+class MarkdownFile:
+    def __init__(self, filename, content):
+        self.filename = filename
+        self.content = content
 
 # 读取 Markdown 文件内容
 def read_markdown_files(folder):
@@ -19,24 +25,32 @@ def read_markdown_files(folder):
                 print(f"读取文件: {filename}")
                 content = file.read()
                 # 按 "文件名: 内容" 格式存储
-                markdown_data.append(f"文件名: {filename}, 内容: {content}")
+                markdown_data.append(MarkdownFile(filename, content))
     return markdown_data
+
+# 将 Markdown 文件列表转换为 XML 字符串
+def markdown_files_to_xml(markdown_files):
+    root = ET.Element("MarkdownFiles")
+    for markdown_file in markdown_files:
+        item = ET.SubElement(root, "MarkdownFile")
+        filename = ET.SubElement(item, "filename")
+        filename.text = markdown_file.filename
+        content = ET.SubElement(item, "content")
+        # 使用 CDATA 区块包裹 content
+        cdata = ET.CDATA(markdown_file.content)
+        content.append(cdata)
+    return ET.tostring(root, encoding="unicode", method="xml")
 
 # 组装数据并调用 Ollama API
 def send_to_ollama(contents):
     """将 Markdown 内容发送到 Ollama 的 /api/chat 接口"""
-    # 组装 messages
-    messages = []
-    for content in contents:
-        messages.append({"role": "user", "content": content})
+    # 将 Markdown 文件列表转换为 XML 字符串
+    xml_string = markdown_files_to_xml(contents)
     
-    # 加入总结请求
-    messages.append({"role": "user", "content": "请总结分类上面的文档"})
-
     # 发送 POST 请求
     response = requests.post(ollama_api_url, 
         json={
-            "messages": messages,
+            "messages": [{"role": "user", "content": xml_string+" 请对xml格式的文档进行总结分类"}],
             "model": "qwq:32b",
             "stream": True
         },

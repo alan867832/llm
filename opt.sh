@@ -94,6 +94,9 @@ find ./downloaded_pdfs/ -type f | xargs -I {} marker_single {} --output_dir ./ma
     ;;
   build)
     cd $PROJECT/llm/cmd && CGO_ENABLED=1 OLLAMA_BACKEND=ggml $GO build -tags="ggml" -o $PROJECT/llmbin
+    #cmake -B build
+    #cmake --build build
+    #go build
     ;;
   run)
     ./llmbin runner --ollama-engine --port 10000 --model $2 --flash-attn true
