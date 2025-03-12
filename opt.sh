@@ -27,7 +27,7 @@ sudo apt-get update
 sudo apt-get -y install cuda-12-6
 nvidia-smi
 /usr/local/cuda-12.6/extras/demo_suite/deviceQuery
-
+find ./downloaded_pdfs/ -type f | xargs -I {} marker_single {} --output_dir ./markdown_files/
    curl -fsSL https://ollama.com/install.sh | sh
 # Environment="CUDA_VISIBLE_DEVICES=0"
 # Environment="OLLAMA_SCHED_SPREAD=1"
